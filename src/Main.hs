@@ -1,4 +1,5 @@
 import System.Random
+import Data.Char
 
 data Interpreter = Interpreter 
                    { code :: Code
@@ -6,7 +7,7 @@ data Interpreter = Interpreter
                    , stack :: Stack 
                    , dir :: Direction 
                    , mode :: Mode 
-                   , gen :: StdGen
+                   , gen :: Int --StdGen
                    , output :: String } deriving (Show)
 
 type Code = [String]
@@ -22,8 +23,9 @@ data Mode = None | Skip | Str deriving (Eq,Show)
 main :: IO ()
 main = do
        c <- getLine 
-       g <- newStdGen
-       putStrLn $ interpret g c 
+       --g <- newStdGen
+       putStrLn $ interpret 0 c 
+       --putStrLn $ interpret g c 
 
 --Setters and updaters for Interpreter
 
@@ -63,11 +65,30 @@ addOutput n (Interpreter c p s d m g o) = Interpreter c p s d m g (o++(show n))
 
 -- Functions for interpretation
 
-interpret :: StdGen -> String -> String
+interpret :: Int -> String -> String
+--interpret :: StdGen -> String -> String
 interpret g c = runProg $ Interpreter (lines c) (0, 0) [] R None g []
 
 runProg :: Interpreter -> String
 runProg i = interpCmd ((code i)!(0, 0)) i
 
+nextCmd :: Interpreter -> Char
+nextCmd i = (code i)!(pos . nextPos $ i)
+
 interpCmd :: Char -> Interpreter -> String
-interpCmd = undefined
+interpCmd c i | mode i == Skip = 
+                              interpCmd (nextCmd i) (nextPos . setMode None $ i)
+              | mode i == Str = 
+                              interpCmd (nextCmd i) (nextPos . push (ord c) $ i)
+              | isDigit c = 
+                       interpCmd (nextCmd i) (nextPos . push (digitToInt c) $ i)
+              | otherwise = case c of
+                '>' -> interpCmd (nextCmd (setDir R i)) (nextPos . setDir R $ i)
+                '<' -> interpCmd (nextCmd (setDir L i)) (nextPos . setDir L $ i)
+                '^' -> interpCmd (nextCmd (setDir U i)) (nextPos . setDir U $ i)
+                'v' -> interpCmd (nextCmd (setDir D i)) (nextPos . setDir D $ i)
+                '"' -> interpCmd (nextCmd i) (nextPos . setMode Str $ i)
+                '#' -> interpCmd (nextCmd i) (nextPos . setMode Skip $ i)
+                '$' -> interpCmd (nextCmd i) (nextPos . dropS $ i)
+                ' ' -> interpCmd (nextCmd i) (nextPos i)
+                '@' -> output i
