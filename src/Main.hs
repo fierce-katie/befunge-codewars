@@ -46,9 +46,12 @@ nextPos (Interpreter c (x,y) s D m g o) = Interpreter c
 push :: Int -> Interpreter -> Interpreter
 push n (Interpreter c p s d m g o) = Interpreter c p (n:s) d m g o
 
+pop :: Interpreter -> Int -> Int
+pop i n = if length (stack i) < n || n <= 0 then 0 else (stack i)!!(n-1)
+
 dropS :: Interpreter -> Interpreter
 dropS (Interpreter c p s d m g o) = Interpreter c p 
-                   (if null s then [0] else tail s)
+                   (if null s then s else tail s)
                    d m g o
 
 setDir :: Direction -> Interpreter -> Interpreter
@@ -57,8 +60,8 @@ setDir d (Interpreter c p s _ m g o) = Interpreter c p s d m g o
 setMode :: Mode -> Interpreter -> Interpreter
 setMode m (Interpreter c p s d _ g o) = Interpreter c p s d m g o
 
-addOutput :: Integer -> Interpreter -> Interpreter
-addOutput n (Interpreter c p s d m g o) = Interpreter c p s d m g (o++(show n))
+addOutput :: String -> Interpreter -> Interpreter
+addOutput n (Interpreter c p s d m g o) = Interpreter c p s d m g (o++n)
 
 (!) :: Code -> Coords -> Char
 (!) c (i, j) = c!!j!!i
@@ -85,12 +88,35 @@ interpCmd c i | mode i == Skip =
               | isDigit c = 
                        interpCmd (nextCmd i) (nextPos . push (digitToInt c) $ i)
               | otherwise = case c of
+                '!' -> interpCmd (nextCmd i) 
+                  (nextPos . push (if val == 0 then 1 else 0) . dropS $ i) where
+                  val = pop i 1
                 '>' -> interpCmd (nextCmd (setDir R i)) (nextPos . setDir R $ i)
                 '<' -> interpCmd (nextCmd (setDir L i)) (nextPos . setDir L $ i)
                 '^' -> interpCmd (nextCmd (setDir U i)) (nextPos . setDir U $ i)
                 'v' -> interpCmd (nextCmd (setDir D i)) (nextPos . setDir D $ i)
+                '_' -> interpCmd (nextCmd (setDir d i)) 
+                       (nextPos . setDir d . dropS $ i) where
+                       d = if val == 0 then R else L
+                       val = pop i 1
+                '|' -> interpCmd (nextCmd (setDir d i)) 
+                       (nextPos . setDir d . dropS $ i) where
+                       d = if val == 0 then D else U
+                       val = pop i 1
                 '"' -> interpCmd (nextCmd i) (nextPos . setMode Str $ i)
-                '#' -> interpCmd (nextCmd i) (nextPos . setMode Skip $ i)
+                ':' -> interpCmd (nextCmd i) (nextPos . push val $ i) where
+                       val = pop i 1
                 '$' -> interpCmd (nextCmd i) (nextPos . dropS $ i)
-                ' ' -> interpCmd (nextCmd i) (nextPos i)
+                '.' -> interpCmd (nextCmd i) 
+                       (nextPos . addOutput (show n) $ i) where
+                       n = pop i 1
+                ',' -> interpCmd (nextCmd i) (nextPos . addOutput c $ i) where
+                       c = [chr (pop i 1)]
+                '#' -> interpCmd (nextCmd i) (nextPos . setMode Skip $ i)
+                'g' -> interpCmd (nextCmd i) 
+                       (nextPos . push n . dropS . dropS $ i) where
+                     n = ord $ (code i)!(x, y)
+                     x = pop i 2
+                     y = pop i 1
                 '@' -> output i
+                ' ' -> interpCmd (nextCmd i) (nextPos i)
