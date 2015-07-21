@@ -78,7 +78,9 @@ nextCmd i = (code i)!(pos . nextPos $ i)
 interpCmd :: Char -> Interpreter -> String
 interpCmd c i | mode i == Skip = 
                               interpCmd (nextCmd i) (nextPos . setMode None $ i)
-              | mode i == Str = 
+              | mode i == Str = if c == '"' then
+                              interpCmd (nextCmd i) (nextPos . setMode None $ i)
+                                            else
                               interpCmd (nextCmd i) (nextPos . push (ord c) $ i)
               | isDigit c = 
                        interpCmd (nextCmd i) (nextPos . push (digitToInt c) $ i)
