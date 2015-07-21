@@ -70,7 +70,14 @@ addOutput n (Interpreter c p s d m g o) = Interpreter c p s d m g (o++n)
 
 interpret :: Int -> String -> String
 --interpret :: StdGen -> String -> String
-interpret g c = runProg $ Interpreter (lines c) (0, 0) [] R None g []
+interpret g c = runProg $ Interpreter (eqlize (lines c)) (0, 0) [] R None g []
+
+eqlize :: Code -> Code
+eqlize c = map (addSpaces m) c where
+               m = maximum (map length c)
+
+addSpaces :: Int -> String -> String
+addSpaces n s = s++(replicate (n - (length s)) ' ')
 
 runProg :: Interpreter -> String
 runProg i = interpCmd ((code i)!(0, 0)) i
@@ -108,9 +115,10 @@ interpCmd c i | mode i == Skip =
                        val = pop i 1
                 '$' -> interpCmd (nextCmd i) (nextPos . dropS $ i)
                 '.' -> interpCmd (nextCmd i) 
-                       (nextPos . addOutput (show n) $ i) where
+                       (nextPos . addOutput (show n) . dropS $ i) where
                        n = pop i 1
-                ',' -> interpCmd (nextCmd i) (nextPos . addOutput c $ i) where
+                ',' -> interpCmd (nextCmd i) 
+                       (nextPos . addOutput c . dropS $ i) where
                        c = [chr (pop i 1)]
                 '#' -> interpCmd (nextCmd i) (nextPos . setMode Skip $ i)
                 'g' -> interpCmd (nextCmd i) 
