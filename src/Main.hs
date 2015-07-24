@@ -49,6 +49,14 @@ push n (Interpreter c p s d m g o) = Interpreter c p (n:s) d m g o
 pop :: Interpreter -> Int -> Int
 pop i n = if length (stack i) < n || n <= 0 then 0 else (stack i)!!(n-1)
 
+put :: Int -> Int -> Int -> Interpreter -> Interpreter
+put x y v (Interpreter c p s d m g o) = Interpreter (store x y v c) p s d m g o
+
+store :: Int -> Int -> Int -> Code -> Code 
+store x y v c = take y c ++ [take x cy ++ [chr v] ++ drop (x + 1) cy] ++ 
+                drop (y + 1) c where 
+                               cy = c !! y
+
 dropS :: Interpreter -> Interpreter
 dropS (Interpreter c p s d m g o) = Interpreter c p 
                    (if null s then s else tail s)
@@ -95,13 +103,40 @@ interpCmd c i | mode i == Skip =
               | isDigit c = 
                        interpCmd (nextCmd i) (nextPos . push (digitToInt c) $ i)
               | otherwise = case c of
+                '+' -> interpCmd (nextCmd i) 
+                       (nextPos . push (a + b) . dropS . dropS $ i) where
+                       a = pop i 1
+                       b = pop i 2
+                '-' -> interpCmd (nextCmd i) 
+                       (nextPos . push (b - a) . dropS . dropS $ i) where
+                       a = pop i 1
+                       b = pop i 2
+                '*' -> interpCmd (nextCmd i) 
+                       (nextPos . push (a * b) . dropS . dropS $ i) where
+                       a = pop i 1
+                       b = pop i 2
+                '/' -> interpCmd (nextCmd i) (nextPos . push 
+                       (if a == 0 then 0 else b `div` a) . 
+                       dropS . dropS $ i) where
+                       a = pop i 1
+                       b = pop i 2
+                '%' -> interpCmd (nextCmd i) (nextPos . 
+                       push (if a == 0 then 0 else b `mod`  a) . 
+                       dropS . dropS $ i) where
+                       a = pop i 1
+                       b = pop i 2
                 '!' -> interpCmd (nextCmd i) 
                   (nextPos . push (if val == 0 then 1 else 0) . dropS $ i) where
                   val = pop i 1
+                '`' -> interpCmd (nextCmd i) (nextPos . 
+                       push (if b > a then 1 else 0) . dropS . dropS $ i) where
+                       a = pop i 1
+                       b = pop i 2
                 '>' -> interpCmd (nextCmd (setDir R i)) (nextPos . setDir R $ i)
                 '<' -> interpCmd (nextCmd (setDir L i)) (nextPos . setDir L $ i)
                 '^' -> interpCmd (nextCmd (setDir U i)) (nextPos . setDir U $ i)
                 'v' -> interpCmd (nextCmd (setDir D i)) (nextPos . setDir D $ i)
+                --'?' -> 
                 '_' -> interpCmd (nextCmd (setDir d i)) 
                        (nextPos . setDir d . dropS $ i) where
                        d = if val == 0 then R else L
@@ -113,6 +148,10 @@ interpCmd c i | mode i == Skip =
                 '"' -> interpCmd (nextCmd i) (nextPos . setMode Str $ i)
                 ':' -> interpCmd (nextCmd i) (nextPos . push val $ i) where
                        val = pop i 1
+                '\\' -> interpCmd (nextCmd i) (nextPos . push b . push a . 
+                        dropS . dropS $ i) where
+                        a = pop i 1
+                        b = pop i 2
                 '$' -> interpCmd (nextCmd i) (nextPos . dropS $ i)
                 '.' -> interpCmd (nextCmd i) 
                        (nextPos . addOutput (show n) . dropS $ i) where
@@ -121,6 +160,11 @@ interpCmd c i | mode i == Skip =
                        (nextPos . addOutput c . dropS $ i) where
                        c = [chr (pop i 1)]
                 '#' -> interpCmd (nextCmd i) (nextPos . setMode Skip $ i)
+                'p' -> interpCmd (nextCmd i) (nextPos . put x y v .
+                       dropS . dropS . dropS $ i) where
+                       y = pop i 1
+                       x = pop i 2
+                       v = pop i 3
                 'g' -> interpCmd (nextCmd i) 
                        (nextPos . push n . dropS . dropS $ i) where
                      n = ord $ (code i)!(x, y)
