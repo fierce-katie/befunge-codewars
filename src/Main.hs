@@ -7,7 +7,7 @@ data Interpreter = Interpreter
                    , stack :: Stack 
                    , dir :: Direction 
                    , mode :: Mode 
-                   , gen :: Int --StdGen
+                   , gen :: StdGen --Int
                    , output :: String } deriving (Show)
 
 type Code = [String]
@@ -23,9 +23,9 @@ data Mode = None | Skip | Str deriving (Eq,Show)
 main :: IO ()
 main = do
        c <- getLine 
-       --g <- newStdGen
-       putStrLn $ interpret 0 c 
-       --putStrLn $ interpret g c 
+       g <- newStdGen
+       --putStrLn $ interpret 0 c 
+       putStrLn $ interpret g c 
 
 --Setters and updaters for Interpreter
 
@@ -68,6 +68,9 @@ setDir d (Interpreter c p s _ m g o) = Interpreter c p s d m g o
 setMode :: Mode -> Interpreter -> Interpreter
 setMode m (Interpreter c p s d _ g o) = Interpreter c p s d m g o
 
+setGen :: StdGen -> Interpreter -> Interpreter
+setGen g (Interpreter c p s d m _ o) = Interpreter c p s d m g o
+
 addOutput :: String -> Interpreter -> Interpreter
 addOutput n (Interpreter c p s d m g o) = Interpreter c p s d m g (o++n)
 
@@ -76,8 +79,8 @@ addOutput n (Interpreter c p s d m g o) = Interpreter c p s d m g (o++n)
 
 -- Functions for interpretation
 
-interpret :: Int -> String -> String
---interpret :: StdGen -> String -> String
+--interpret :: Int -> String -> String
+interpret :: StdGen -> String -> String
 interpret g c = runProg $ Interpreter (eqlize (lines c)) (0, 0) [] R None g []
 
 eqlize :: Code -> Code
@@ -86,6 +89,13 @@ eqlize c = map (addSpaces m) c where
 
 addSpaces :: Int -> String -> String
 addSpaces n s = s++(replicate (n - (length s)) ' ')
+
+randDir :: Int -> Direction
+randDir 0 = R
+randDir 1 = L
+randDir 2 = D
+randDir 3 = U
+
 
 runProg :: Interpreter -> String
 runProg i = interpCmd ((code i)!(0, 0)) i
@@ -136,7 +146,10 @@ interpCmd c i | mode i == Skip =
                 '<' -> interpCmd (nextCmd (setDir L i)) (nextPos . setDir L $ i)
                 '^' -> interpCmd (nextCmd (setDir U i)) (nextPos . setDir U $ i)
                 'v' -> interpCmd (nextCmd (setDir D i)) (nextPos . setDir D $ i)
-                --'?' -> 
+                '?' -> interpCmd (nextCmd (setDir rand i)) 
+                       (nextPos . setDir rand . setGen g $ i) where
+                       (v, g) = next (gen i)
+                       rand = randDir $ v `mod` 4
                 '_' -> interpCmd (nextCmd (setDir d i)) 
                        (nextPos . setDir d . dropS $ i) where
                        d = if val == 0 then R else L
